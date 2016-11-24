@@ -17,16 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with SickRage. If not, see <http://www.gnu.org/licenses/>.
 # pylint: disable=too-many-lines
-from threading import Lock
-
 import datetime
-import socket
+import gettext
 import os
-import sys
+import random
 import re
 import shutil
-import random
-import gettext
+import socket
+import sys
+from threading import Lock
 
 try:
     import pytz  # pylint: disable=unused-import
@@ -34,7 +33,6 @@ except ImportError:
     from pkg_resources import require
     require('pytz')
 
-import shutil_custom
 from sickbeard.indexers import indexer_api
 from sickbeard.common import SD, SKIPPED, WANTED
 from sickbeard.databases import mainDB, cache_db, failed_db
@@ -75,7 +73,6 @@ dynamic_strings = (
 )
 
 
-shutil.copyfile = shutil_custom.copyfile_custom
 requests.packages.urllib3.disable_warnings()
 indexerApi = indexer_api.indexerApi
 
@@ -297,6 +294,7 @@ TV_DOWNLOAD_DIR = None
 UNPACK = False
 SKIP_REMOVED_FILES = False
 ALLOWED_EXTENSIONS = "srt,nfo,srr,sfv"
+USE_FREE_SPACE_CHECK = True
 
 NZBS = False
 NZBS_UID = None
@@ -474,6 +472,12 @@ USE_SYNOLOGYNOTIFIER = False
 SYNOLOGYNOTIFIER_NOTIFY_ONSNATCH = False
 SYNOLOGYNOTIFIER_NOTIFY_ONDOWNLOAD = False
 SYNOLOGYNOTIFIER_NOTIFY_ONSUBTITLEDOWNLOAD = False
+
+USE_SLACK = False
+SLACK_NOTIFY_SNATCH = None
+SLACK_NOTIFY_DOWNLOAD = None
+SLACK_NOTIFY_SUBTITLEDOWNLOAD = None
+SLACK_WEBHOOK = None
 
 USE_TRAKT = False
 TRAKT_USERNAME = None
@@ -660,7 +664,7 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
             USE_LISTVIEW, METADATA_KODI, METADATA_KODI_12PLUS, METADATA_MEDIABROWSER, METADATA_PS3, metadata_provider_dict, \
             NEWZBIN, NEWZBIN_USERNAME, NEWZBIN_PASSWORD, GIT_PATH, MOVE_ASSOCIATED_FILES, SYNC_FILES, POSTPONE_IF_SYNC_FILES, dailySearchScheduler, NFO_RENAME, \
             GUI_NAME, HOME_LAYOUT, HISTORY_LAYOUT, DISPLAY_SHOW_SPECIALS, COMING_EPS_LAYOUT, COMING_EPS_SORT, COMING_EPS_DISPLAY_PAUSED, COMING_EPS_MISSED_RANGE, FUZZY_DATING, TRIM_ZERO, DATE_PRESET, TIME_PRESET, TIME_PRESET_W_SECONDS, THEME_NAME, \
-            POSTER_SORTBY, POSTER_SORTDIR, HISTORY_LIMIT, CREATE_MISSING_SHOW_DIRS, ADD_SHOWS_WO_DIR, \
+            POSTER_SORTBY, POSTER_SORTDIR, HISTORY_LIMIT, CREATE_MISSING_SHOW_DIRS, ADD_SHOWS_WO_DIR, USE_FREE_SPACE_CHECK, \
             METADATA_WDTV, METADATA_TIVO, METADATA_MEDE8ER, IGNORE_WORDS, TRACKERS_LIST, IGNORED_SUBS_LIST, REQUIRE_WORDS, CALENDAR_UNPROTECTED, CALENDAR_ICONS, NO_RESTART, \
             USE_SUBTITLES, SUBTITLES_LANGUAGES, SUBTITLES_DIR, SUBTITLES_SERVICES_LIST, SUBTITLES_SERVICES_ENABLED, SUBTITLES_HISTORY, SUBTITLES_FINDER_FREQUENCY, SUBTITLES_MULTI, SUBTITLES_KEEP_ONLY_WANTED, EMBEDDED_SUBTITLES_ALL, SUBTITLES_EXTRA_SCRIPTS, SUBTITLES_PERFECT_MATCH, subtitlesFinderScheduler, \
             SUBTITLES_HEARING_IMPAIRED, ADDIC7ED_USER, ADDIC7ED_PASS, ITASA_USER, ITASA_PASS, LEGENDASTV_USER, LEGENDASTV_PASS, OPENSUBTITLES_USER, OPENSUBTITLES_PASS, \
@@ -670,7 +674,8 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
             ANIME_SPLIT_HOME, SCENE_DEFAULT, DOWNLOAD_URL, BACKLOG_DAYS, GIT_USERNAME, GIT_PASSWORD, \
             DEVELOPER, DISPLAY_ALL_SEASONS, SSL_VERIFY, NEWS_LAST_READ, NEWS_LATEST, SOCKET_TIMEOUT, \
             SYNOLOGY_DSM_HOST, SYNOLOGY_DSM_USERNAME, SYNOLOGY_DSM_PASSWORD, SYNOLOGY_DSM_PATH, GUI_LANG, \
-            FANART_BACKGROUND, FANART_BACKGROUND_OPACITY, NZBTO, NZBTO_APIKEY, NZBTO_USERNAME, NZBINDEX
+            NZBTO, NZBTO_APIKEY, NZBTO_USERNAME, NZBINDEX, \
+            FANART_BACKGROUND, FANART_BACKGROUND_OPACITY, USE_SLACK, SLACK_NOTIFY_SNATCH, SLACK_NOTIFY_DOWNLOAD, SLACK_WEBHOOK
 
         if __INITIALIZED__:
             return False
@@ -697,6 +702,7 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
         CheckSection(CFG, 'Pushbullet')
         CheckSection(CFG, 'Subtitles')
         CheckSection(CFG, 'pyTivo')
+        CheckSection(CFG, 'Slack')
 
         # Need to be before any passwords
         ENCRYPTION_VERSION = check_setting_int(CFG, 'General', 'encryption_version', 0)
@@ -984,6 +990,7 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
         NFO_RENAME = bool(check_setting_int(CFG, 'General', 'nfo_rename', 1))
         CREATE_MISSING_SHOW_DIRS = bool(check_setting_int(CFG, 'General', 'create_missing_show_dirs', 0))
         ADD_SHOWS_WO_DIR = bool(check_setting_int(CFG, 'General', 'add_shows_wo_dir', 0))
+        USE_FREE_SPACE_CHECK = bool(check_setting_int(CFG, 'General', 'use_free_space_check', 1))
 
         NZBS = bool(check_setting_int(CFG, 'NZBs', 'nzbs', 0))
         NZBS_UID = check_setting_str(CFG, 'NZBs', 'nzbs_uid', '', censor_log=True)
@@ -1149,6 +1156,11 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
             check_setting_int(CFG, 'SynologyNotifier', 'synologynotifier_notify_ondownload', 0))
         SYNOLOGYNOTIFIER_NOTIFY_ONSUBTITLEDOWNLOAD = bool(
             check_setting_int(CFG, 'SynologyNotifier', 'synologynotifier_notify_onsubtitledownload', 0))
+
+        USE_SLACK = bool(check_setting_int(CFG, 'Slack', 'use_slack', 0 ))
+        SLACK_NOTIFY_SNATCH = bool(check_setting_int(CFG, 'Slack', 'slack_notify_snatch', 0))
+        SLACK_NOTIFY_DOWNLOAD = bool(check_setting_int(CFG, 'Slack', 'slack_notify_download', 0))
+        SLACK_WEBHOOK = check_setting_str(CFG, 'Slack', 'slack_webhook', '')
 
         USE_TRAKT = bool(check_setting_int(CFG, 'Trakt', 'use_trakt', 0))
         TRAKT_USERNAME = check_setting_str(CFG, 'Trakt', 'trakt_username', '', censor_log=True)
@@ -1394,6 +1406,9 @@ def initialize(consoleLogging=True):  # pylint: disable=too-many-locals, too-man
             if hasattr(curTorrentProvider, 'subtitle'):
                 curTorrentProvider.subtitle = bool(check_setting_int(CFG, curTorrentProvider.get_id().upper(),
                                                                      curTorrentProvider.get_id() + '_subtitle', 0))
+            if hasattr(curTorrentProvider, 'cookies'):
+                curTorrentProvider.cookies = check_setting_str(CFG, curTorrentProvider.get_id().upper(),
+                                                               curTorrentProvider.get_id() + '_cookies', '', censor_log=True)
 
         for curNzbProvider in [curProvider for curProvider in providers.sortedProviderList() if
                                curProvider.provider_type == GenericProvider.NZB]:
@@ -1743,6 +1758,9 @@ def save_config():  # pylint: disable=too-many-statements, too-many-branches
         if hasattr(curTorrentProvider, 'subtitle'):
             new_config[curTorrentProvider.get_id().upper()][curTorrentProvider.get_id() + '_subtitle'] = int(
                 curTorrentProvider.subtitle)
+        if hasattr(curTorrentProvider, 'cookies'):
+            new_config[curTorrentProvider.get_id().upper()][
+                curTorrentProvider.get_id() + '_cookies'] = curTorrentProvider.cookies
 
     for curNzbProvider in [curProvider for curProvider in providers.sortedProviderList() if
                            curProvider.provider_type == GenericProvider.NZB]:
@@ -1885,6 +1903,7 @@ def save_config():  # pylint: disable=too-many-statements, too-many-branches
             'file_timestamp_timezone': FILE_TIMESTAMP_TIMEZONE,
             'create_missing_show_dirs': int(CREATE_MISSING_SHOW_DIRS),
             'add_shows_wo_dir': int(ADD_SHOWS_WO_DIR),
+            'use_free_space_check': int(USE_FREE_SPACE_CHECK),
 
             'extra_scripts': '|'.join(EXTRA_SCRIPTS),
             'git_path': GIT_PATH,
@@ -2105,6 +2124,13 @@ def save_config():  # pylint: disable=too-many-statements, too-many-branches
             'synologynotifier_notify_onsnatch': int(SYNOLOGYNOTIFIER_NOTIFY_ONSNATCH),
             'synologynotifier_notify_ondownload': int(SYNOLOGYNOTIFIER_NOTIFY_ONDOWNLOAD),
             'synologynotifier_notify_onsubtitledownload': int(SYNOLOGYNOTIFIER_NOTIFY_ONSUBTITLEDOWNLOAD)
+        },
+
+        'Slack': {
+            'use_slack': int(USE_SLACK),
+            'slack_notify_snatch': int(SLACK_NOTIFY_SNATCH),
+            'slack_notify_download': int(SLACK_NOTIFY_DOWNLOAD),
+            'slack_webhook': SLACK_WEBHOOK
         },
 
         'Trakt': {

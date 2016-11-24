@@ -20,11 +20,11 @@
 
 from __future__ import unicode_literals
 
-import os.path
 import datetime
-import threading
+import os.path
 import re
 import stat
+import threading
 import traceback
 
 try:
@@ -66,10 +66,8 @@ from sickbeard.common import NAMING_DUPLICATE, NAMING_EXTEND, NAMING_LIMITED_EXT
     NAMING_LIMITED_EXTEND_E_PREFIXED
 
 import shutil
-import shutil_custom
 
 
-shutil.copyfile = shutil_custom.copyfile_custom
 
 
 def dirty_setter(attr_name):
@@ -100,6 +98,7 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
         self._paused = 0
         self._air_by_date = 0
         self._subtitles = int(sickbeard.SUBTITLES_DEFAULT)
+        self._subtitles_sr_metadata = 0
         self._dvdorder = 0
         self._lang = lang
         self._last_update_indexer = 1
@@ -150,6 +149,7 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
     rls_ignore_words = property(lambda self: self._rls_ignore_words, dirty_setter("_rls_ignore_words"))
     rls_require_words = property(lambda self: self._rls_require_words, dirty_setter("_rls_require_words"))
     default_ep_status = property(lambda self: self._default_ep_status, dirty_setter("_default_ep_status"))
+    subtitles_sr_metadata = property(lambda self: self._subtitles_sr_metadata, dirty_setter("_subtitles_sr_metadata"))
 
     @property
     def is_anime(self):
@@ -484,6 +484,9 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
         cachedShow = t[self.indexerid]
         cachedSeasons = {}
 
+        curShowid = None
+        curShowName = None
+
         for curResult in sql_results:
 
             curSeason = int(curResult[b"season"])
@@ -528,8 +531,9 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
                            logger.DEBUG)
                 continue
 
-        logger.log("{id}: Finished loading all episodes for {show} from the DB".format
-                   (show=curShowName, id=curShowid), logger.DEBUG)
+        if curShowName and curShowid:
+            logger.log("{id}: Finished loading all episodes for {show} from the DB".format
+                       (show=curShowName, id=curShowid), logger.DEBUG)
 
         return scannedEps
 
@@ -811,6 +815,8 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
 
             if self.is_anime:
                 self.release_groups = BlackAndWhiteList(self.indexerid)
+
+            self.subtitles_sr_metadata = int(sql_results[0][b"sub_use_sr_metadata"] or 0)
 
         # Get IMDb_info from database
         main_db_con = db.DBConnection()
@@ -1148,7 +1154,8 @@ class TVShow(object):  # pylint: disable=too-many-instance-attributes, too-many-
                         "last_update_indexer": self.last_update_indexer,
                         "rls_ignore_words": self.rls_ignore_words,
                         "rls_require_words": self.rls_require_words,
-                        "default_ep_status": self.default_ep_status}
+                        "default_ep_status": self.default_ep_status,
+                        "sub_use_sr_metadata": self.subtitles_sr_metadata}
 
         main_db_con = db.DBConnection()
         main_db_con.upsert("tv_shows", newValueDict, controlValueDict)
@@ -1387,13 +1394,11 @@ class TVEpisode(object):  # pylint: disable=too-many-instance-attributes, too-ma
 
     def refreshSubtitles(self):
         """Look for subtitles files and refresh the subtitles property"""
-        episode_info = {'show_name': self.show.name, 'location': self.location,
-                        'season': self.season, 'episode': self.episode}
-        self.subtitles, save_subtitles = subtitles.refresh_subtitles(episode_info, self.subtitles)
+        self.subtitles, save_subtitles = subtitles.refresh_subtitles(self)
         if save_subtitles:
             self.saveToDB()
 
-    def download_subtitles(self, force=False):
+    def download_subtitles(self, force=False, force_lang=None):
         force_ = force
         if not ek(os.path.isfile, self.location):
             logger.log("{id}: Episode file doesn't exist, can't download subtitles for {ep}".format
@@ -1401,7 +1406,7 @@ class TVEpisode(object):  # pylint: disable=too-many-instance-attributes, too-ma
                        logger.DEBUG)
             return
 
-        if not subtitles.needs_subtitles(self.subtitles):
+        if not subtitles.needs_subtitles(self.subtitles, force_lang):
             logger.log('Episode already has all needed subtitles, skipping episode {ep} of show {show}'.format
                        (ep=episode_num(self.season, self.episode), show=self.show.name), logger.DEBUG)
             return
@@ -1410,11 +1415,7 @@ class TVEpisode(object):  # pylint: disable=too-many-instance-attributes, too-ma
                    (show=self.show.name, ep=episode_num(self.season, self.episode),
                     location=os.path.basename(self.location)), logger.DEBUG)
 
-        subtitles_info = {'location': self.location, 'subtitles': self.subtitles, 'season': self.season,
-                          'episode': self.episode, 'name': self.name, 'show_name': self.show.name,
-                          'show_indexerid': self.show.indexerid, 'status': self.status}
-
-        self.subtitles, new_subtitles = subtitles.download_subtitles(subtitles_info)
+        self.subtitles, new_subtitles = subtitles.download_subtitles(self, force_lang)
 
         self.subtitles_searchcount += 1 if self.subtitles_searchcount else 1
         self.subtitles_lastsearch = datetime.datetime.now().strftime(dateTimeFormat)

@@ -81,15 +81,21 @@ class qbittorrentAPI(GenericClient):
         if result.show.is_anime:
             label = sickbeard.TORRENT_LABEL_ANIME
 
-        if self.api > 6 and label:
+        if self.api > 6 and self.api <  10 and label:
             self.url = self.host + 'command/setLabel'
             data = {'hashes': result.hash.lower(), 'label': label.replace(' ', '_')}
             return self._request(method='post', data=data, cookies=self.session.cookies)
+
+        elif self.api >= 10 and label:
+            self.url = self.host + 'command/setCategory'
+            data = {'hashes': result.hash.lower(), 'category': label.replace(' ', '_')}
+            return self._request(method='post', data=data, cookies=self.session.cookies)
+
         return True
 
     def _set_torrent_priority(self, result):
 
-        self.url = self.host + 'command/decreasePrio '
+        self.url = self.host + 'command/decreasePrio'
         if result.priority == 1:
             self.url = self.host + 'command/increasePrio'
 

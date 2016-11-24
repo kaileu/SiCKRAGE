@@ -275,7 +275,6 @@
                                     </div>
                                 % endif
 
-
                                 % if hasattr(curNzbProvider, 'enable_daily'):
                                     <div class="field-pair row">
                                         <div class="col-lg-3 col-md-4 col-sm-5 col-xs-12">
@@ -430,7 +429,7 @@
                                         <div class="col-lg-9 col-md-8 col-sm-7 col-xs-12 component-desc">
                                             <input type="password" name="${curTorrentProvider.get_id()}_password"
                                                    id="${curTorrentProvider.get_id()}_password"
-                                                   value="${curTorrentProvider.password}" class="form-control input-sm input350"
+                                                   value="${curTorrentProvider.password | h}" class="form-control input-sm input350"
                                                    autocomplete="no" autocapitalize="off"/>
                                         </div>
                                     </div>
@@ -446,6 +445,34 @@
                                                    id="${curTorrentProvider.get_id()}_passkey"
                                                    value="${curTorrentProvider.passkey}" class="form-control input-sm input350"
                                                    autocapitalize="off"/>
+                                        </div>
+                                    </div>
+                                % endif
+
+                                % if curTorrentProvider.enable_cookies:
+                                    <div class="field-pair row">
+                                        <div class="col-lg-3 col-md-4 col-sm-5 col-xs-12">
+                                            <label class="component-title">${_('Cookies')}</label>
+                                        </div>
+                                        <div class="col-lg-9 col-md-8 col-sm-7 col-xs-12 component-desc">
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <input type="text" name="${curTorrentProvider.get_id()}_cookies"
+                                                           id="${curTorrentProvider.get_id()}_cookies"
+                                                           value="${curTorrentProvider.cookies}"
+                                                           class="form-control input-sm input350"
+                                                           autocapitalize="off" autocomplete="no" />
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <label for="${curTorrentProvider.get_id()}_cookies">
+                                                        ${_('Example: uid=1234;pass=567845439634987<br>' +
+                                                        'Note: uid and pass are not your username/password.<br>' +
+                                                        'Use DevTools or Firebug to get these values after logging in on your browser.')}
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 % endif

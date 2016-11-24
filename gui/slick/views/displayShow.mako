@@ -30,25 +30,31 @@
                 <div class="col-md-12" style="margin: 5px 0;">
                     <input type="hidden" id="srRoot" value="${srRoot}" />
                     <div class="form-inline">
-                        ${_('Change Show')}:
-                        <div class="navShow"><span id="prevShow" class="displayshow-icon-left" title="${_('Prev Show')}" /></div>
-                        <select id="pickShow" class="form-control input-sm input350" title="Change Show">
-                            % for curShowList in sortedShowLists:
-                                <% curShowType = curShowList[0] %>
-                                <% curShowList = curShowList[1] %>
+                        <label for="pickShow">${_('Change Show')}:</label>
+                        <div class="pick-show-group input350">
+                            <div class="navShow">
+                                <span id="prevShow" class="displayshow-icon-left" title="${_('Prev Show')}"></span>
+                            </div>
+                            <select id="pickShow" class="form-control input-sm" title="Change Show">
+                                % for curShowList in sortedShowLists:
+                                    <% curShowType = curShowList[0] %>
+                                    <% curShowList = curShowList[1] %>
 
-                                % if len(sortedShowLists) > 1:
-                                    <optgroup label="${curShowType}">
-                                % endif
-                                % for curShow in curShowList:
-                                    <option value="${curShow.indexerid}" ${('', 'selected="selected"')[curShow == show]}>${curShow.name}</option>
+                                    % if len(sortedShowLists) > 1:
+                                        <optgroup label="${curShowType}">
+                                    % endif
+                                    % for curShow in curShowList:
+                                        <option value="${curShow.indexerid}" ${('', 'selected="selected"')[curShow == show]}>${curShow.name}</option>
+                                    % endfor
+                                    % if len(sortedShowLists) > 1:
+                                        </optgroup>
+                                    % endif
                                 % endfor
-                                % if len(sortedShowLists) > 1:
-                                    </optgroup>
-                                % endif
-                            % endfor
-                        </select>
-                        <div class="navShow"><span id="nextShow" class="displayshow-icon-right" title="${_('Next Show')}" /></div>
+                            </select>
+                            <div class="navShow">
+                                <span id="nextShow" class="displayshow-icon-right" title="${_('Next Show')}"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -58,27 +64,14 @@
                     <h1 class="title" id="scene_exception_${show.indexerid}">${show.name}</h1>
                     % if seasonResults:
                         ##There is a special/season_0?##
-                        % if int(seasonResults[-1]["season"]) == 0:
-                            <% season_special = 1 %>
-                        % else:
-                            <% season_special = 0 %>
-                        % endif
+                        <% season_special = (int(seasonResults[-1]["season"]) == 0) %>
                         % if not sickbeard.DISPLAY_SHOW_SPECIALS and season_special:
                             <% lastSeason = seasonResults.pop(-1) %>
                         % endif
 
-                        <span class="h2footer displayspecials pull-right">
-                            % if season_special:
-                                ${_('Display Specials')}:
-                                <a class="inner" href="${srRoot}/toggleDisplayShowSpecials/?show=${show.indexerid}">
-                                    ${(_('Show'), _('Hide'))[bool(sickbeard.DISPLAY_SHOW_SPECIALS)]}
-                                </a>
-                            % endif
-                        </span>
-
                         <div class="h2footer pull-right">
                             <span>
-                                % if (len(seasonResults) > 14):
+                                % if (len(seasonResults) > 5):
                                     <select id="seasonJump" class="form-control input-sm" style="position: relative; top: -4px;" title="Season">
                                         <option value="jump">${_('Jump to Season')}</option>
                                         % for seasonNum in seasonResults:
@@ -86,17 +79,19 @@
                                         % endfor
                                     </select>
                                 % else:
-                                    ${_('Season')}:
-                                    % for seasonNum in seasonResults:
-                                        % if int(seasonNum["season"]) == 0:
-                                            <a href="#season-${seasonNum["season"]}">${_('Specials')}</a>
-                                        % else:
-                                            <a href="#season-${seasonNum["season"]}">${str(seasonNum["season"])}</a>
-                                        % endif
-                                        % if seasonNum != seasonResults[-1]:
-                                            <span class="separator">|</span>
-                                        % endif
-                                    % endfor
+                                    <label>
+                                        <span>${_('Season')}:</span>
+                                        % for seasonNum in seasonResults:
+                                            % if int(seasonNum["season"]) == 0:
+                                                <a href="#season-${seasonNum["season"]}">${_('Specials')}</a>
+                                            % else:
+                                                <a href="#season-${seasonNum["season"]}">${str(seasonNum["season"])}</a>
+                                            % endif
+                                            % if seasonNum != seasonResults[-1]:
+                                                <span class="separator">|</span>
+                                            % endif
+                                        % endfor
+                                    </label>
                                 % endif
                             </span>
                         </div>
@@ -117,7 +112,7 @@
 
             <!-- Header -->
             <div class="row">
-                <div class="col-md-12 show-info-container">
+                <div class="col-md-12">
                     <div class="poster-container">
                         <img src="${srRoot}/showPoster/?show=${show.indexerid}&amp;which=poster_thumb"
                              class="tvshowImg" alt="${_('Poster for')} ${show.name}"
@@ -271,6 +266,10 @@
                                                 </tr>
                                             % endif
                                             <tr>
+                                                <td class="showLegend">${_('Subtitles SR Metadata')}: </td>
+                                                <td><img src="${srRoot}/images/${("no16.png", "yes16.png")[bool(show.subtitles_sr_metadata)]}" alt="${("N", "Y")[bool(show.subtitles_sr_metadata)]}" width="16" height="16" /></td>
+                                            </tr>
+                                            <tr>
                                                 <td class="showLegend">${_('Season Folders')}: </td>
                                                 <td><img src="${srRoot}/images/${("no16.png", "yes16.png")[bool(not show.flatten_folders or sickbeard.NAMING_FORCE_FOLDERS)]}" alt=="${("N", "Y")[bool(not show.flatten_folders or sickbeard.NAMING_FORCE_FOLDERS)]}" width="16" height="16" /></td>
                                             </tr>
@@ -405,7 +404,6 @@
                     % endif
                     <div class="row">
                         <div class="col-md-12">
-                            <br/>
                             <br/>
                             <h3 style="display: inline;"><a name="season-${epResult["season"]}"></a>${(_("Specials"), _("Season") + ' ' + str(epResult["season"]))[int(epResult["season"]) > 0]}</h3>
                             % if sickbeard.DISPLAY_ALL_SEASONS is False:
@@ -561,7 +559,7 @@
                                                 for rootDir in sickbeard.ROOT_DIRS.split('|'):
                                                     if rootDir.startswith('/'):
                                                         filename = filename.replace(rootDir, "")
-                                                    filename = sickbeard.DOWNLOAD_URL + urllib.quote(filename.encode('utf8'))
+                                                filename = sickbeard.DOWNLOAD_URL + urllib.quote(filename.encode('utf8'))
                                             %>
                                                 <center><a href="${filename}">${_('Download')}</a></center>
                                             % endif
@@ -569,7 +567,13 @@
                                         <td class="col-subtitles" align="center">
                                             % for flag in (epResult["subtitles"] or '').split(','):
                                                 % if flag.strip():
-                                                    <img src="${srRoot}/images/subtitles/flags/${flag}.png" width="16" height="11" alt="${subtitles.name_from_code(flag)}" onError="this.onerror=null;this.src='${srRoot}/images/flags/unknown.png';" />
+                                                    % if flag != 'und':
+                                                        <a class="epRetrySubtitlesSearch" href="retrySearchSubtitles?show=${show.indexerid}&amp;season=${epResult["season"]}&amp;episode=${epResult["episode"]}&amp;lang=${flag}">
+                                                            <img src="${srRoot}/images/subtitles/flags/${flag}.png" data-image-url="${srRoot}/images/subtitles/flags/${flag}.png" width="16" height="11" alt="${subtitles.name_from_code(flag)}" onError="this.onerror=null;this.src='${srRoot}/images/flags/unknown.png';" />
+                                                        </a>
+                                                    % else:
+                                                        <img src="${srRoot}/images/subtitles/flags/${flag}.png" width="16" height="11" alt="${subtitles.name_from_code(flag)}" onError="this.onerror=null;this.src='${srRoot}/images/flags/unknown.png';" />
+                                                    % endif
                                                 % endif
                                             % endfor
                                         </td>
@@ -633,6 +637,25 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-dismiss="modal">No</button>
                     <button type="button" class="btn btn-success" data-dismiss="modal">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmSubtitleDownloadModal" class="modal fade">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title">${_('Download subtitle')}</h4>
+                </div>
+                <div class="modal-body">
+                    <p>${_('Do you want to redownload the subtitle for this language?')}</p>
+                    <p class="text-warning"><small>${_('It will overwrite your current subtitle')}</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-info" data-dismiss="modal">${_('No')}</button>
+                    <button type="button" class="btn btn-success" data-dismiss="modal">${_('Yes')}</button>
                 </div>
             </div>
         </div>

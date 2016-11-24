@@ -2,8 +2,9 @@
 Use setup tools to install sickrage
 """
 import os
-from setuptools import find_packages, setup
+
 from babel.messages import frontend as babel
+from setuptools import find_packages, setup
 
 ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__)))
 
@@ -28,7 +29,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'pytz',
-        'requests'
+        'requests',
+        'mako'
     ],
 
     test_suite="tests",
@@ -37,7 +39,8 @@ setup(
         'nose',
         'rednose',
         'mock',
-        'vcrpy-unittest'
+        'vcrpy-unittest',
+        'babel'
     ],
 
     classifiers=[

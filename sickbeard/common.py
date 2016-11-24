@@ -25,19 +25,20 @@ Common interface for Quality and Status
 # pylint: disable=line-too-long
 from __future__ import unicode_literals
 
+import gettext
 import operator
-from os import path
 import platform
 import re
 import uuid
-import gettext
+from os import path
 
-from fake_useragent import settings as UA_SETTINGS, UserAgent
+from fake_useragent import UserAgent, settings as UA_SETTINGS
+
 from sickbeard.numdict import NumDict
-from sickrage.helper.encoding import ek
 from sickrage.helper import video_screen_size
-from sickrage.tagger.episode import EpisodeTags
+from sickrage.helper.encoding import ek
 from sickrage.recompiled import tags
+from sickrage.tagger.episode import EpisodeTags
 
 gettext.install('messages', unicode=1, codeset='UTF-8')
 
@@ -353,10 +354,10 @@ class Quality(object):
                     result = Quality.FULLHDWEBDL if full_res else Quality.HDWEBDL
                 # HDTV
                 elif ep.avc and ep.tv == 'hd':
-                    if not all([ep.vres == 1080, ep.raw, ep.avc_non_free]):
-                        result = Quality.FULLHDTV if full_res else Quality.HDTV
-                    else:
-                        result = Quality.RAWHDTV
+                    result = Quality.FULLHDTV if full_res else Quality.HDTV #1080 HDTV h264
+                # MPEG2 encoded
+                elif all([ep.vres == 1080, ep.tv == 'hd', ep.mpeg]):
+                    result = Quality.RAWHDTV
                 elif all([ep.vres == 720, ep.tv == 'hd', ep.mpeg]):
                     result = Quality.RAWHDTV
             elif (ep.res == '1080i') and ep.tv == 'hd' and (ep.mpeg or (ep.raw and ep.avc_non_free)):
