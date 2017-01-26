@@ -128,8 +128,8 @@ class EpisodeTags(object):
             return 'dlmux'
         if self.netflix: 
             return self.netflix
-		if self.amazon:  
-			return self.amazon 
+        if self.amazon:  
+            return self.amazon 
         if self.itunes: 
             return self.itunes 
 
