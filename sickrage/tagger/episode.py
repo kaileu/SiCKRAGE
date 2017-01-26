@@ -283,7 +283,7 @@ class EpisodeTags(object):
         match = self._get_match_obj(attr)
         return '' if not match else match.group()
 	
-	@property
+    @property
     def amazon(self):
         """
         Amazon tage found in name
